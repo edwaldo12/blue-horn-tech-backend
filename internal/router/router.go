@@ -7,7 +7,6 @@ import (
 	"github.com/edwaldo/test_blue_horn_tech/backend/internal/config"
 	"github.com/edwaldo/test_blue_horn_tech/backend/internal/handler"
 	"github.com/edwaldo/test_blue_horn_tech/backend/internal/middleware"
-	"github.com/edwaldo/test_blue_horn_tech/backend/internal/repository"
 	"github.com/edwaldo/test_blue_horn_tech/backend/internal/usecase"
 	cors "github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,12 +22,11 @@ func NewRouter(
 	taskHandler *handler.TaskHandler,
 	attendanceHandler *handler.CaregiverAttendanceHandler,
 	docsHandler *handler.DocsHandler,
-	logRepo repository.RequestLogRepository,
 	corsCfg config.CORSConfig,
 ) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(middleware.RequestLogger(logger, nil))
+	r.Use(middleware.RequestLogger(logger))
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     corsCfg.AllowOrigins,
 		AllowMethods:     corsCfg.AllowMethods,

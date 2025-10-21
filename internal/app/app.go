@@ -40,7 +40,6 @@ func New(ctx context.Context, cfg config.Config) (*Application, error) {
 	authRepo := postgres.NewAuthRepository(database)
 	caregiverRepo := postgres.NewCaregiverRepository(database)
 	caregiverLogRepo := postgres.NewCaregiverLogRepository(database)
-	requestLogRepo := postgres.NewRequestLogRepository(database)
 
 	scheduleUC := usecase.NewScheduleUsecase(schedRepo, taskRepo)
 	taskUC := usecase.NewTaskUsecase(taskRepo, schedRepo)
@@ -53,7 +52,7 @@ func New(ctx context.Context, cfg config.Config) (*Application, error) {
 	attendanceHandler := handler.NewCaregiverAttendanceHandler(attendanceUC)
 	docsHandler := handler.NewDocsHandler()
 
-	router := routerpkg.NewRouter(log, authUC, authHandler, scheduleHandler, taskHandler, attendanceHandler, docsHandler, requestLogRepo, cfg.CORS)
+	router := routerpkg.NewRouter(log, authUC, authHandler, scheduleHandler, taskHandler, attendanceHandler, docsHandler, cfg.CORS)
 
 	return &Application{
 		Config: cfg,

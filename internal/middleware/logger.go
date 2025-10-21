@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/edwaldo/test_blue_horn_tech/backend/internal/config"
-	"github.com/edwaldo/test_blue_horn_tech/backend/internal/domain"
-	"github.com/edwaldo/test_blue_horn_tech/backend/internal/repository"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -42,7 +40,7 @@ func NewLogger(cfg config.LoggingConfig) (*zap.Logger, error) {
 }
 
 // RequestLogger returns a Gin middleware that logs request metadata.
-func RequestLogger(logger *zap.Logger, repo repository.RequestLogRepository) gin.HandlerFunc {
+func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
@@ -68,19 +66,6 @@ func RequestLogger(logger *zap.Logger, repo repository.RequestLogRepository) gin
 			zap.String("userAgent", userAgent),
 		)
 
-		if repo != nil {
-			logEntry := domain.RequestLog{
-				Method:    method,
-				Path:      path,
-				Query:     raw,
-				Status:    status,
-				Latency:   latency,
-				IP:        clientIP,
-				UserAgent: userAgent,
-			}
-			if err := repo.Insert(c.Request.Context(), logEntry); err != nil {
-				logger.Warn("failed to persist request log", zap.Error(err))
-			}
-		}
+		
 	}
 }
