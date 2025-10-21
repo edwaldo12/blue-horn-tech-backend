@@ -65,7 +65,5 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 			zap.String("ip", clientIP),
 			zap.String("userAgent", userAgent),
 		)
-
-		
 	}
 }
