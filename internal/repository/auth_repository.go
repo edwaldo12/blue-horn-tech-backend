@@ -8,5 +8,6 @@ import (
 
 // AuthRepository encapsulates persistence for OAuth2/OIDC style clients.
 type AuthRepository interface {
+	//
 	GetClientByID(ctx context.Context, clientID string) (domain.AuthClient, error)
 }
