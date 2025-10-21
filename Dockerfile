@@ -7,7 +7,7 @@ RUN go mod download
 
 # Copy the rest of the source and build a static binary for Linux/amd64
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /src/bin/api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /src/bin/api ./cmd
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
