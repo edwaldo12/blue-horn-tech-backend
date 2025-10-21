@@ -28,7 +28,7 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(middleware.RequestLogger(logger, logRepo))
+	r.Use(middleware.RequestLogger(logger, nil))
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     corsCfg.AllowOrigins,
 		AllowMethods:     corsCfg.AllowMethods,
