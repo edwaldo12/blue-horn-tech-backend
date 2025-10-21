@@ -25,7 +25,7 @@ func TestScheduleRepositoryListSchedules(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "caregiver_id", "client_name", "service_name", "start_time", "end_time", "status", "location_label"}).
 		AddRow("sched-1", "cg-1", "Client A", "Service", time.Now(), time.Now().Add(time.Hour), "scheduled", "Location")
 
-	mock.ExpectQuery("SELECT s\\.id[\\s\\S]+ORDER BY s\\.start_time ASC").
+	mock.ExpectQuery("SELECT s\\.id[\\s\\S]+ORDER BY CASE s\\.status[\\s\\S]+").
 		WithArgs("cg-1").
 		WillReturnRows(rows)
 
