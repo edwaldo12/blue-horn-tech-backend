@@ -1,0 +1,47 @@
+name: Build & Deploy Staging
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: ['staging']
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: CAPROVER_TOKEN_STG
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Create deployment bundle
+        uses: a7ul/tar-action@v1.1.0
+        with:
+          command: c
+          cwd: './'
+          files: |
+            Dockerfile
+            captain-definition
+            go.mod
+            go.sum
+            cmd
+            internal
+            migrations
+          outPath: deploy.tar
+
+      - name: Deploy to CapRover
+        uses: caprover/deploy-from-github@v1.0.1
+        with:
+          server: 'https://captain.zenika.id'
+          app: 'bht-be'
+          token: ${{ secrets.CAPROVER_TOKEN_STG }}
