@@ -11,6 +11,13 @@ Backend service for the Blue Horn Tech caregiver scheduling assignment. The API 
 - JWT (HS256) tokens for the faux OIDC flow
 - Plain SQL migrations (stored in `/migrations`)
 
+### Why this stack?
+
+- **Go**: chosen for its lightweight concurrency model (goroutines typically start with a ~2 KB stack) which keeps the service responsive as IO-bound workloads grow.
+- **PostgreSQL**: reliable relational store with strong JSON support and mature tooling; fits the structured scheduling data well.
+- **Gin + sqlx**: thin abstractions that stay close to the metal while still providing productivity with routing, middleware, and query helpers.
+- **Zap logging & JWT**: structured logs aid debugging, while signed tokens unlock a simple “OIDC-like” client-credentials flow shared with the frontend.
+
 ## Project Layout
 
 ```
@@ -64,6 +71,10 @@ cp backend/.env.example backend/.env
 # 3. Apply the SQL migrations (seeds demo data)
 docker compose exec -T postgres psql -U postgres -d care_tracker < backend/migrations/0001_init.sql
 docker compose exec -T postgres psql -U postgres -d care_tracker < backend/migrations/0002_logs_caregivers.sql
+
+#    The seed inserts a caregiver with ID `c2d1bb61-8d67-4db5-9e59-4c2c16f7d4f2`
+#    and registers the OAuth client `caregiver-app / caregiver-secret`. Make sure
+#    your `.env` values (e.g. `AUTH_DEFAULT_CAREGIVER_ID`) continue to match.
 
 # 4. Start the API
 cd backend
@@ -137,17 +148,17 @@ Both assets are embedded in the binary so no extra tooling is required.
 
 ## API Surface
 
-| Method  | Path                       | Description                                               |
-| ------- | -------------------------- | --------------------------------------------------------- |
-| `POST`  | `/api/auth/token`          | Obtain access + ID token                                  |
-| `GET`   | `/api/schedules`           | List schedules (filter by `status`, `date` query params)  |
-| `GET`   | `/api/schedules/today`     | Today’s schedules + metrics                               |
-| `GET`   | `/api/schedules/metrics`   | Aggregate counts for a given date (`?date=YYYY-MM-DD`)    |
-| `GET`   | `/api/schedules/:id`       | Schedule detail with tasks and client info                |
-| `POST`  | `/api/schedules/:id/start` | Clock-in; requires `latitude` & `longitude`               |
-| `POST`  | `/api/schedules/:id/end`   | Clock-out; requires `latitude` & `longitude`              |
-| `POST`  | `/api/schedules/:id/tasks` | Add a new care task to the schedule                       |
-| `PATCH` | `/api/tasks/:taskId`       | Update task status (complete or not-complete with reason) |
+| Method | Path                               | Description |
+| ------ | ---------------------------------- | ----------- |
+| `POST` | `/api/auth/token`                  | Obtain access + ID token |
+| `GET`  | `/api/schedules`                   | List schedules (filter by `status`, `date` query params) |
+| `GET`  | `/api/schedules/today`             | Today’s schedules + metrics |
+| `GET`  | `/api/schedules/metrics`           | Aggregate counts for a given date (`?date=YYYY-MM-DD`) |
+| `GET`  | `/api/schedules/:id`               | Schedule detail with tasks and client info |
+| `POST` | `/api/schedules/:id/start`         | Clock-in; requires `latitude` & `longitude` |
+| `POST` | `/api/schedules/:id/end`           | Clock-out; requires `latitude` & `longitude` |
+| `POST` | `/api/schedules/:id/tasks`         | Add a new care task to the schedule |
+| `PATCH`| `/api/tasks/:taskId`               | Update task status (complete or not-complete with reason) |
 
 All `/api/*` endpoints except `/api/auth/token` require the Bearer access token header.
 
@@ -176,3 +187,9 @@ curl -H "Authorization: Bearer $token" http://localhost:8080/api/schedules
 - Integrate a migration runner (e.g., `golang-migrate` or `goose`) if automated migration flow is preferred.
 - Geolocation fallback: if the browser denies access, the frontend should prompt for manual latitude/longitude entry and send those values to the backend. Document any alternative flows in the frontend README when implemented.
 - Run unit tests with `go test ./...` to validate use cases and auth flows.
+
+## Assumptions
+
+- The domain model was inferred from the assignment brief; some tables/fields may evolve once full business rules are clarified.
+- The seeded caregiver ID (`c2d1bb61-8d67-4db5-9e59-4c2c16f7d4f2`) is wired into `.env.example` to keep the mock OIDC flow working out of the box.
+- Attendance logging requirements were interpreted broadly, so the schema may require tweaks once end-to-end flows are finalized.

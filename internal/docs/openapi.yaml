@@ -126,6 +126,22 @@ components:
                   updated_at:
                     type: string
                     format: date-time
+            clock_in_lat:
+              type: number
+              nullable: true
+            clock_in_long:
+              type: number
+              nullable: true
+            clock_out_lat:
+              type: number
+              nullable: true
+            clock_out_long:
+              type: number
+              nullable: true
+            location_label:
+              type: string
+            duration_mins:
+              type: integer
     ClockEventRequest:
       type: object
       required: [latitude, longitude]
@@ -159,14 +175,139 @@ components:
           type: string
         sort_order:
           type: integer
+    CaregiverLog:
+      type: object
+      properties:
+        id:
+          type: string
+        caregiver_id:
+          type: string
+        log_type:
+          type: string
+          enum: [clock_in, clock_out]
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    CaregiverLogSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        caregiver_id:
+          type: string
+        log_type:
+          type: string
+          enum: [clock_in, clock_out]
+        timestamp:
+          type: string
+          format: date-time
+    TodayAttendanceStatus:
+      type: object
+      properties:
+        caregiver_id:
+          type: string
+        date:
+          type: string
+          format: date
+        has_clocked_in:
+          type: boolean
+        has_clocked_out:
+          type: boolean
+        clock_in_at:
+          type: string
+          format: date-time
+          nullable: true
+        clock_in_lat:
+          type: number
+          nullable: true
+        clock_in_long:
+          type: number
+          nullable: true
+        clock_out_at:
+          type: string
+          format: date-time
+          nullable: true
+        clock_out_lat:
+          type: number
+          nullable: true
+        clock_out_long:
+          type: number
+          nullable: true
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+    ScheduleMetrics:
+      type: object
+      properties:
+        total:
+          type: integer
+        missed:
+          type: integer
+        upcoming:
+          type: integer
+        completed:
+          type: integer
+        in_progress:
+          type: integer
+        cancelled:
+          type: integer
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
 paths:
+  /healthz:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
   /api/auth/token:
     post:
       summary: Obtain access token via client credentials
+      description: |
+        Issues an access token using client credentials flow. Supports both form-encoded 
+        and JSON request bodies, as well as Basic authentication.
       requestBody:
         required: true
         content:
           application/json:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  default: client_credentials
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                scope:
+                  type: string
+          application/x-www-form-urlencoded:
             schema:
               type: object
               properties:
@@ -188,9 +329,12 @@ paths:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
           description: Invalid request
+        '401':
+          description: Invalid client credentials
   /api/schedules:
     get:
       summary: List schedules
+      description: Returns paginated list of schedules for the authenticated caregiver
       security:
         - bearerAuth: []
       parameters:
@@ -199,11 +343,25 @@ paths:
           schema:
             type: string
           description: Comma-separated status filter
+          example: scheduled,in_progress
         - in: query
           name: date
           schema:
             type: string
             format: date
+          description: Filter by specific date (YYYY-MM-DD format)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Maximum number of items to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Number of items to skip
       responses:
         '200':
           description: Success
@@ -216,9 +374,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ScheduleSummary'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
   /api/schedules/today:
     get:
       summary: Get today's schedules and metrics
+      description: Returns all schedules for today along with aggregate metrics
       security:
         - bearerAuth: []
       responses:
@@ -234,23 +397,13 @@ paths:
                     items:
                       $ref: '#/components/schemas/ScheduleSummary'
                   metrics:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      missed:
-                        type: integer
-                      upcoming:
-                        type: integer
-                      completed:
-                        type: integer
-                      in_progress:
-                        type: integer
-                      cancelled:
-                        type: integer
+                    $ref: '#/components/schemas/ScheduleMetrics'
+        '401':
+          description: Unauthorized
   /api/schedules/metrics:
     get:
       summary: Get schedule metrics for a date
+      description: Returns aggregate counts for schedules on a specific date
       security:
         - bearerAuth: []
       parameters:
@@ -259,12 +412,23 @@ paths:
           schema:
             type: string
             format: date
+          description: Date to get metrics for (YYYY-MM-DD format), defaults to today
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ScheduleMetrics'
+        '401':
+          description: Unauthorized
   /api/schedules/{scheduleId}:
     get:
       summary: Get schedule detail
+      description: Returns detailed information for a specific schedule including tasks and client info
       security:
         - bearerAuth: []
       parameters:
@@ -273,6 +437,7 @@ paths:
           required: true
           schema:
             type: string
+          description: ID of the schedule
       responses:
         '200':
           description: Success
@@ -283,9 +448,14 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/ScheduleDetail'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Schedule not found
   /api/schedules/{scheduleId}/start:
     post:
       summary: Clock in to schedule
+      description: Records a clock-in event for a schedule with location coordinates
       security:
         - bearerAuth: []
       parameters:
@@ -294,6 +464,7 @@ paths:
           required: true
           schema:
             type: string
+          description: ID of the schedule
       requestBody:
         required: true
         content:
@@ -303,9 +474,23 @@ paths:
       responses:
         '200':
           description: Updated schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ScheduleDetail'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Schedule not found
   /api/schedules/{scheduleId}/end:
     post:
       summary: Clock out of schedule
+      description: Records a clock-out event for a schedule with location coordinates
       security:
         - bearerAuth: []
       parameters:
@@ -314,6 +499,7 @@ paths:
           required: true
           schema:
             type: string
+          description: ID of the schedule
       requestBody:
         required: true
         content:
@@ -323,9 +509,23 @@ paths:
       responses:
         '200':
           description: Updated schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ScheduleDetail'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Schedule not found
   /api/schedules/{scheduleId}/tasks:
     post:
       summary: Create task
+      description: Adds a new task to an existing schedule
       security:
         - bearerAuth: []
       parameters:
@@ -334,6 +534,7 @@ paths:
           required: true
           schema:
             type: string
+          description: ID of the schedule
       requestBody:
         required: true
         content:
@@ -343,9 +544,25 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ScheduleDetail'
+                  task_id:
+                    type: string
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Schedule not found
   /api/tasks/{taskId}:
     patch:
       summary: Update task status
+      description: Updates the completion status of a task
       security:
         - bearerAuth: []
       parameters:
@@ -354,6 +571,7 @@ paths:
           required: true
           schema:
             type: string
+          description: ID of the task
       requestBody:
         required: true
         content:
@@ -363,3 +581,141 @@ paths:
       responses:
         '200':
           description: Updated schedule snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ScheduleDetail'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Task not found
+  /api/attendance/today/status:
+    get:
+      summary: Get today's attendance status
+      description: Returns the caregiver's current attendance status for today
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TodayAttendanceStatus'
+        '401':
+          description: Unauthorized
+  /api/attendance/clock-in:
+    post:
+      summary: Record daily attendance clock-in
+      description: Records a clock-in event for daily attendance (independent of schedules)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClockEventRequest'
+      responses:
+        '200':
+          description: Clock-in recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CaregiverLog'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '409':
+          description: Already clocked in today
+  /api/attendance/clock-out:
+    post:
+      summary: Record daily attendance clock-out
+      description: Records a clock-out event for daily attendance (independent of schedules)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClockEventRequest'
+      responses:
+        '200':
+          description: Clock-out recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CaregiverLog'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '409':
+          description: Not clocked in or already clocked out
+  /api/attendance/history:
+    get:
+      summary: Get attendance history
+      description: Returns paginated attendance history for the caregiver
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: log_type
+          schema:
+            type: string
+            enum: [clock_in, clock_out]
+          description: Filter by log type
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          description: Filter by start date (YYYY-MM-DD format)
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          description: Filter by end date (YYYY-MM-DD format)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Maximum number of items to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Number of items to skip
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CaregiverLogSummary'
+        '401':
+          description: Unauthorized
