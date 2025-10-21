@@ -67,5 +67,8 @@ func (a *Application) Shutdown(ctx context.Context) error {
 	if err := a.DB.Close(); err != nil {
 		return err
 	}
-	return a.Logger.Sync()
+	// Ignore logger sync errors in containerized environments
+	// (sync /dev/stdout errors are common and harmless in Docker)
+	_ = a.Logger.Sync()
+	return nil
 }
