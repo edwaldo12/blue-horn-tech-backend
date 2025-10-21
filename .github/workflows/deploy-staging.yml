@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: ['staging']
+    branches: ['main']
 
 jobs:
   build-and-deploy:
