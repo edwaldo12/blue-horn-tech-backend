@@ -1,6 +1,8 @@
 module github.com/edwaldo/test_blue_horn_tech/backend
 
-go 1.24.4
+go 1.23.0
+
+toolchain go1.24.4
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
